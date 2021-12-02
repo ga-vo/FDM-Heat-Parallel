@@ -23,16 +23,16 @@ void llenado()
     {
         if (i % 5 == 0)
         {
-            u[i] = (double)1200;
+            u[i] = 1200;
         }
         else
         {
-            u[i] = (double)300;
+            u[i] = 300;
         }
     }
 }
 
-void proceso()
+void MDF()
 {
     for (int m = 0; m < nt; m++)
     {
@@ -47,9 +47,9 @@ void proceso()
 int main()
 {
     llenado();
-    cout << "Inicial!" << u[43] << endl;
-    proceso();
-    cout << "FInal!" << u[43] << endl;
+    cout << "Inicial! " << u[1] << endl;
+    MDF();
+    cout << "FInal! " << u[1] << endl;
 
     return 0;
 }

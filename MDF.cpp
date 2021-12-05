@@ -1,6 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+
+#include "gnuplot-iostream.h"
+
 using namespace std;
 
 int nc = 100;
@@ -20,25 +23,23 @@ double t = 0;
 
 double *u;
 
-// void llenado()
-// {
-//     for (int i = 1; i < nx - 1; i++)
-//     {
-//         u[i] = 0;
-//     }
-
-//     u[0] = 1200;
-//     u[nx - 1] = 300;
-// }
 
 void MDF()
 {
     for (int m = 0; m < nt; m++)
     {
+        // Create a copy of u array using memcpy (from C)
+        double uold[nx];
+        memcpy(uold, u, nx * sizeof(double));
+
         t = t + dt;
         for (int i = 1; i < nx - 1; i++)
         {
-            u[i] = r * u[i - 1] + r2 * u[i] + r * u[i + 1];
+            u[i] = r * uold[i - 1] + r2 * uold[i] + r * uold[i + 1];
+            if (i == 100)
+            {
+                cout << "old" << uold[i] << "  now: " << u[i] << endl;
+            }
         }
     }
 }
@@ -67,6 +68,7 @@ double *split(string s, int size)
 
 int main(int argc, char *argv[])
 {
+    // Gnuplot gp;
     ifstream file1(argv[1]);
     string line;
     int nline = 1;
@@ -75,6 +77,7 @@ int main(int argc, char *argv[])
     if (!file1)
     {
         cout << "Please use $ ./MDA <file> " << endl;
+        cout << "File format:\n     nrows\n     ncolumns\n     dt\n     dx\n     u\n     alpha(or k)" << endl;
     }
     else
     {
@@ -98,7 +101,7 @@ int main(int argc, char *argv[])
                 dx = stod(line);
                 break;
             case 5:
-                
+
                 size = std::count(line.begin(), line.end(), ',') + 1;
                 arr = split(line, size);
                 u = arr;
@@ -112,17 +115,33 @@ int main(int argc, char *argv[])
                     }
                 }
                 break;
-            case 6: alpha = stod(line);
+            case 6:
+                alpha = stod(line);
             }
             nline++;
         }
+        r = alpha * dt / (dx * dx);
+        r2 = 1 - 2 * r;
         file1.close();
+        cout << "dt: " << dt << "  dx: " << dx << "  alpha: " << alpha << endl;
+        // llenado();
+        cout << "Inicial! " << u[0] << endl;
+        MDF();
+        cout << "Final! " << u[0] << endl;
+        ofstream salida("output");
+        int conta = 0;
+        for (int i = 0; i < 50; i++)
+        {
+            for (int j = 0; j < 100; j++)
+            {
+                salida << j << " " << i << " " << u[conta] << endl;
+                conta++;
+            }
+        }
+
+        salida.close();
     }
-    cout << "dt: " << dt << "  dx: " << dx << "  alpha: " << alpha << endl;
-    //llenado();
-    cout << "Inicial! " << u[nx/2] << endl;
-    MDF();
-    cout << "Final! " << u[nx/2] << endl;
+
 
     return 0;
 }

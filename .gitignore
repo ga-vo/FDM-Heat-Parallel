@@ -3,7 +3,8 @@
 
 #Output files
 *.out
+output
 MDF
 
 #Test files
-test
+test*

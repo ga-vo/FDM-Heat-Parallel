@@ -44,12 +44,18 @@ if (len(argumentos) > 1):
                 exit()
 
         testarr = []
-        for i in range(nc):
-            for j in range(nr):
-                if(j < nr/2):
-                    testarr.append(1200)
-                else:
-                    testarr.append(300)
+        # for i in range(nc):
+        #     for j in range(nr):
+        #         if(i < nc/2):
+        #             testarr.append(1200)
+        #         else:
+        #             testarr.append(300)
+
+        for i in range(nc*nr):
+            # if(i < nc/2):
+            #     testarr.append(1200)
+            # else:
+            testarr.append(10)
 
         texttest = str(testarr).replace(
             "[", "").replace("]", "").replace(" ", "")
@@ -60,6 +66,8 @@ if (len(argumentos) > 1):
         f.write(str(dt)+"\n")
         f.write(str(dx)+"\n")
         f.write(texttest+"\n")
+        f.write("1200"+"\n")
+        f.write("300"+"\n")
         f.write(str(alpha))
         f.close()
 
@@ -70,11 +78,11 @@ if (len(argumentos) > 1):
     if("--graph" or "fg" in argumentos):
         testarr = []
         for i in range(100):
-            for j in range(100):
-                if(j < nr/2):
-                    testarr.append([j, i, 1200])
+            for j in range(10):
+                if(i < nr/2):
+                    testarr.append([i, j, 1200])
                 else:
-                    testarr.append([j, i, 300])
+                    testarr.append([i, j, 300])
 
         texttest = str(testarr).replace("],", "\n").replace(
             "]", "").replace("[", "").replace(" ", "").replace(",", " ")

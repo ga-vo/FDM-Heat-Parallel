@@ -1,44 +1,48 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
-
+#include <vector>
 #include "gnuplot-iostream.h"
 
 using namespace std;
 
-int nc = 100;
-int nr = 100;
-int L = 100;
-int tmax = 3000;
-int nx = nc * nr;
-int nt = 500;
+// initial variables
+int nc, nr, L, tmax, nx;
+int nt = 10000;
+int size = 0;
 
-double dx = (double)L / (nx);
-double dt = (double)tmax / (nt);
-double alpha = 0.001 / 1000;
-double r = alpha * dt / (dx * dx);
-double r2 = 1 - 2 * r;
+double temp;
+double dx, dt, alpha, r, r2, tempIzq, tempDer;
 
 double t = 0;
 
 double *u;
 
-
+// Finite differences method
 void MDF()
 {
+    cout << u[nx - 1] << endl;
     for (int m = 0; m < nt; m++)
     {
         // Create a copy of u array using memcpy (from C)
         double uold[nx];
         memcpy(uold, u, nx * sizeof(double));
-
         t = t + dt;
-        for (int i = 1; i < nx - 1; i++)
+
+        for (int j = 0; j < nr; j++)
         {
-            u[i] = r * uold[i - 1] + r2 * uold[i] + r * uold[i + 1];
-            if (i == 100)
+            int ar = (j * nc);
+            for (int i = 1; i < nc - 1; i++)
             {
-                cout << "old" << uold[i] << "  now: " << u[i] << endl;
+
+                if (ar + 1 < nx)
+                {
+                    u[ar + i] = r * uold[ar + i - 1] + r2 * uold[ar + i] + r * uold[ar + i + 1];
+                }
+                else
+                {
+                    cout << "i: " << i << "  j: " << j << endl;
+                }
             }
         }
     }
@@ -49,99 +53,244 @@ double *split(string s, int size)
     double *arr = new double[size];
     int occ = -1;
     int occ2 = 0;
-    for (int i = 0; i < size; i++)
+    for (int i = 1; i < size - 1; i++)
     {
-        occ2 = s.find(",", occ + 1);
-
-        if (occ2 != string::npos)
+        if (i % nc == 0)
         {
-            arr[i] = stod(s.substr(occ + 1, occ2));
+            arr[i] = tempIzq;
         }
         else
         {
-            arr[i] = stod(s.substr(occ + 1, s.length() - 1));
+            if (i % nc - 1 == 0)
+            {
+                arr[i] = tempDer;
+            }
+            else
+            {
+                occ2 = s.find(",", occ + 1);
+
+                if (occ2 != string::npos)
+                {
+                    arr[i] = stod(s.substr(occ + 1, occ2));
+                }
+                else
+                {
+                    arr[i] = stod(s.substr(occ + 1, s.length() - 1));
+                }
+                occ = occ2;
+            }
         }
-        occ = occ2;
     }
     return arr;
 }
 
+double *llenado(double temp, int size)
+{
+    double *arr = new double[size];
+
+    for (int j = 0; j < nr; j++)
+    {
+        int ar = (j * nc);
+        arr[ar] = tempIzq;
+        for (int i = 1; i < nc - 1; i++)
+        {
+
+            arr[ar + i] = temp;
+        }
+        arr[ar + nc - 1] = tempDer;
+    }
+    return arr;
+}
+
+void graph(string filename, string title)
+{
+    Gnuplot gp;
+    ofstream salida(filename);
+
+    std::vector<double> pts_X;
+    std::vector<double> pts_Y;
+    std::vector<double> pts_Z;
+
+    for (int j = 0; j < nr; j++)
+    {
+        int ar = (j * nc);
+        for (int i = 0; i < nc; i++)
+        {
+            pts_X.push_back(i);
+            pts_Y.push_back(j);
+            pts_Z.push_back(u[ar + i]);
+            salida << i << " " << j << " " << u[ar + i] << endl;
+        }
+    }
+
+    salida.close();
+
+    // gp << "set xrang[0:" << max(nr,nc) << "]" << "\n set yrang[0:" << max(nr,nc) << "]" << endl;
+    gp << "plot '-' with image title '" << title << "'" << endl;
+    gp.send1d(make_tuple(pts_X, pts_Y, pts_Z));
+    gp.clearTmpfiles();
+}
+
 int main(int argc, char *argv[])
 {
-    // Gnuplot gp;
-    ifstream file1(argv[1]);
-    string line;
-    int nline = 1;
-    double *arr;
-    int size = 0;
-    if (!file1)
+    if (argc > 1)
     {
-        cout << "Please use $ ./MDA <file> " << endl;
-        cout << "File format:\n     nrows\n     ncolumns\n     dt\n     dx\n     u\n     alpha(or k)" << endl;
+        ifstream inputFile(argv[1]);
+        string line;
+        int nline = 1;
+        double *arr;
+
+        if (!inputFile)
+        {
+            cout << "Please use $ ./MDA <file> or verify filename" << endl;
+            cout << "File format:\n     nrows\n     ncolumns\n     dt\n     dx\n     u\n     alpha(or k)" << endl;
+        }
+        else
+        {
+
+            while (getline(inputFile, line))
+            {
+                switch (nline)
+                {
+                case 1:
+                    try
+                    {
+                        nr = stoi(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of rows, provide a int" << endl;
+                        exit(1);
+                    }
+
+                    break;
+                case 2:
+                    try
+                    {
+                        nc = stoi(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of columns, provide a int" << endl;
+                        exit(1);
+                    }
+
+                    break;
+                case 3:
+                    try
+                    {
+                        dt = stod(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of columns, provide a int" << endl;
+                        exit(1);
+                    }
+
+                    break;
+                case 4:
+                    try
+                    {
+                        dx = stod(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of columns, provide a int" << endl;
+                        exit(1);
+                    }
+
+                    break;
+                case 5:
+                    if (argc > 2)
+                    {
+                        if (!strcmp(argv[2], "--array"))
+                        {
+                            size = std::count(line.begin(), line.end(), ',') + 3;
+                            if (size > 0)
+                            {
+                                arr = split(line, size);
+                                u = arr;
+                                nx = size;
+                            }
+                            else
+                            {
+                                cout << "Please provide a valid file format: error in U vector" << endl;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            size = nr * nc;
+                            nx = size;
+                            temp = stod(line);
+                        }
+                        catch (invalid_argument e)
+                        {
+                            cout << "Please provide a valid file format: error in initial temperature, provide a float" << endl;
+                            exit(1);
+                        }
+                    }
+                    break;
+                case 6:
+                    try
+                    {
+                        tempIzq = stod(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of columns, provide a int" << endl;
+                        exit(1);
+                    }
+
+                    break;
+                case 7:
+                    try
+                    {
+                        tempDer = stod(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of columns, provide a int" << endl;
+                        exit(1);
+                    }
+
+                    break;
+                case 8:
+                    try
+                    {
+                        alpha = stod(line);
+                    }
+                    catch (invalid_argument e)
+                    {
+                        cout << "Please provide a valid file format: error in number of columns, provide a int" << endl;
+                        exit(1);
+                    }
+                    break;
+                }
+                nline++;
+            }
+            u = llenado(temp, size);
+            u[0] = tempIzq;
+            u[nx - 1] = tempDer;
+            r = alpha * dt / (dx * dx);
+            r2 = 1 - 2 * r;
+            inputFile.close();
+            cout << "nc: " << nc << "  nr: " << nr << "  nx: " << nx << "  dt: " << dt << "  dx: " << dx << "  alpha: " << alpha << endl;
+            graph("input", "Estado Inicial");
+            MDF();
+            graph("output", "Estado Final");
+
+            cout << "Finished :D" << endl;
+        }
     }
     else
     {
-        // cout << file1.rdbuf() << endl;
-        while (getline(file1, line))
-        {
-            cout << "-----" << endl;
-            cout << line << endl;
-            switch (nline)
-            {
-            case 1:
-                nr = stoi(line);
-                break;
-            case 2:
-                nc = stoi(line);
-                break;
-            case 3:
-                dt = stod(line);
-                break;
-            case 4:
-                dx = stod(line);
-                break;
-            case 5:
 
-                size = std::count(line.begin(), line.end(), ',') + 1;
-                arr = split(line, size);
-                u = arr;
-                nx = size;
-                if (size > 0)
-                {
-                    cout << "funciona" << endl;
-                    for (int j = 0; j < size; j++)
-                    {
-                        cout << j << ": " << arr[j] << endl;
-                    }
-                }
-                break;
-            case 6:
-                alpha = stod(line);
-            }
-            nline++;
-        }
-        r = alpha * dt / (dx * dx);
-        r2 = 1 - 2 * r;
-        file1.close();
-        cout << "dt: " << dt << "  dx: " << dx << "  alpha: " << alpha << endl;
-        // llenado();
-        cout << "Inicial! " << u[0] << endl;
-        MDF();
-        cout << "Final! " << u[0] << endl;
-        ofstream salida("output");
-        int conta = 0;
-        for (int i = 0; i < 50; i++)
-        {
-            for (int j = 0; j < 100; j++)
-            {
-                salida << j << " " << i << " " << u[conta] << endl;
-                conta++;
-            }
-        }
-
-        salida.close();
+        cout << "Please use $ ./MDA <file> " << endl;
+        cout << "File format:\n     nrows\n     ncolumns\n     dt\n     dx\n     u\n     alpha(or k)" << endl;
     }
-
 
     return 0;
 }

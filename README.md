@@ -8,9 +8,9 @@ File format:
   ncolumns   
   dt  
   dx  
-  initialTemp
-  leftTemp
-  rigthTemp
+  initialTemp 
+  leftTemp  
+  rigthTemp 
   alpha(or k)
   
 #### Or ./MDF <File> --array 

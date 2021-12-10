@@ -10,7 +10,7 @@ using namespace std;
 int nc, nr, L, tmax, nx;
 int nt = 10000;
 int size = 0;
-
+bool lleno = false;
 double temp;
 double dx, dt, alpha, r, r2, tempIzq, tempDer;
 
@@ -81,6 +81,8 @@ double *split(string s, int size)
             }
         }
     }
+    lleno = true;
+
     return arr;
 }
 
@@ -92,13 +94,23 @@ double *llenado(double temp, int size)
     {
         int ar = (j * nc);
         arr[ar] = tempIzq;
-        for (int i = 1; i < nc - 1; i++)
+        if (!lleno)
         {
+            for (int i = 1; i < nc - 1; i++)
+            {
 
-            arr[ar + i] = temp;
+                arr[ar + i] = temp;
+            }
+        }else{
+            for (int i = 1; i < nc - 1; i++)
+            {
+
+                arr[ar + i] = u[ar+i];
+            }
         }
         arr[ar + nc - 1] = tempDer;
     }
+    lleno = true;
     return arr;
 }
 

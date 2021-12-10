@@ -1,6 +1,9 @@
 #Visual Studio Code
 .vscode
 
+#Input files
+input
+
 #Output files
 *.out
 output

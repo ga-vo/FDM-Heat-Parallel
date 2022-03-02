@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <vector>
 #include "gnuplot-iostream.h"
+#include <omp.h>
+#include <chrono>
 
 using namespace std;
 
@@ -16,12 +18,43 @@ double dx, dt, alpha, r, r2, tempIzq, tempDer;
 
 double t = 0;
 
-double *u;
+double *u, *u_parallel;
+
+void MDF_parallel()
+{
+    cout << u_parallel[nx - 1] << endl;
+    #pragma omp parallel for
+    for (int m = 0; m < nt; m++)
+    {
+        // Create a copy of u array using memcpy (from C)
+        double uold[nx];
+        memcpy(uold, u_parallel, nx * sizeof(double));
+        t = t + dt;
+
+        for (int j = 0; j < nr; j++)
+        {
+            int ar = (j * nc);
+            for (int i = 1; i < nc - 1; i++)
+            {
+
+                if (ar + 1 < nx)
+                {
+                    u_parallel[ar + i] = r * uold[ar + i - 1] + r2 * uold[ar + i] + r * uold[ar + i + 1];
+                }
+                else
+                {
+                    cout << "i: " << i << "  j: " << j << endl;
+                }
+            }
+        }
+    }
+}
 
 // Finite differences method
 void MDF()
 {
     cout << u[nx - 1] << endl;
+   // #pragma omp parallel for
     for (int m = 0; m < nt; m++)
     {
         // Create a copy of u array using memcpy (from C)
@@ -53,6 +86,7 @@ double *split(string s, int size)
     double *arr = new double[size];
     int occ = -1;
     int occ2 = 0;
+    #pragma omp parallel for
     for (int i = 1; i < size - 1; i++)
     {
         if (i % nc == 0)
@@ -286,13 +320,26 @@ int main(int argc, char *argv[])
             u = llenado(temp, size);
             u[0] = tempIzq;
             u[nx - 1] = tempDer;
+            u_parallel = new double[nx];
+            memcpy(u_parallel, u, nx * sizeof(double));
             r = alpha * dt / (dx * dx);
             r2 = 1 - 2 * r;
             inputFile.close();
             cout << "nc: " << nc << "  nr: " << nr << "  nx: " << nx << "  dt: " << dt << "  dx: " << dx << "  alpha: " << alpha << endl;
             graph("input", "Estado Inicial");
+            auto start = std::chrono::high_resolution_clock::now();
             MDF();
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);            
+            // graph("output", "Estado Final");
+            std::cout << "Duracion Single-Core:" << duration.count() << std::endl;
+
+            auto start1 = std::chrono::high_resolution_clock::now();
+            MDF_parallel();
+            auto stop1 = std::chrono::high_resolution_clock::now();
+            auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(stop1 - start1);            
             graph("output", "Estado Final");
+            std::cout << "Duracion " << omp_get_max_threads() << " cores: "<< duration1.count() << std::endl;
 
             cout << "Finished :D" << endl;
         }

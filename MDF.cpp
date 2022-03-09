@@ -6,7 +6,6 @@
 #include <omp.h>
 #include <chrono>
 #include <stdio.h>
-#include <cuda.h>
 
 using namespace std;
 
@@ -22,42 +21,6 @@ double t = 0;
 
 double *u, *u_parallel;
 
-__global__ void MDF_elem(double *uold, double *u)
-{
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int ar = j * nc;
-
-    for (int i = 1; i < nc - 1; i++)
-    {
-
-        if (ar + 1 < nx)
-        {
-            u[ar + i] = r * uold[ar + i - 1] + r2 * uold[ar + i] + r * uold[ar + i + 1];
-        }
-        else
-        {
-            cout << "i: " << i << "  j: " << j << endl;
-        }
-    }
-}
-
-void MDF_parallel_cuda()
-{
-    long N = 32 * nr;
-    for (int m = 0; m < nt; m++)
-    {
-        t = t + dt;
-        double uold[nx];
-        memcpy(uold, u, nx * sizeof(double));
-        double *u_d, *u_h;
-        // Create a copy of u array using memcpy (from C)
-        cudaMalloc((void **)&u_d, N * sizeof(double));
-        u_h = (double *)malloc(N * sizeof(double));
-        MDF_elem<<<N / 32, 32>>>(uold, u_d);
-        cudaMemcpy(u_h, u_d, N * sizeof(double), cudaMemcpyDeviceToHost);
-        memcpy(u_d, u, nx * sizeof(double));
-    }
-}
 
 // Finite differences method
 void MDF()

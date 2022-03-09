@@ -1,7 +1,7 @@
-# Finite difference method for 1D heat equation with OMP parallelism
+# Finite difference method for 1D heat equation with *OMP* parallelism and *CUDA* implementation
 
 ## RUN
-#### To run use ./MDF <File>
+#### To run use `./MDF <File>`
   
 File format:
   nrows  
@@ -13,7 +13,7 @@ File format:
   rigthTemp 
   alpha(or k)
   
-#### Or ./MDF <File> --array 
+#### Or `./MDF <File> --array` [This don't works for cuda implementations]
   
 File format:  
   nrows  
@@ -24,7 +24,9 @@ File format:
   alpha(or k)
   
 ## COMPILE
-  g++ ./MDF.cpp -lboost_iostreams -fopenmp -o MDF
+  For cpp code: `g++ ./MDF.cpp -lboost_iostreams -fopenmp -o MDF`
+  
+  For cuda code: `nvcc -arch=<GPU_ARCHITECTURE_CODE> -ccbin g++ -Xcompiler="-lboost_iostreams -fopenmp" -o MDFcuda MDF.cu`
   
 ## RESULTS
   

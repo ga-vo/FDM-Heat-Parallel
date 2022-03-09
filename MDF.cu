@@ -22,47 +22,51 @@ double t = 0;
 
 double *u, *u_parallel;
 
-__global__ void MDF_elem(double *uold, double *u)
+
+__global__ void MDF_elem_op(double *uold, double *u, int nc_d, int nx_d, double r_d, double r2_d)
 {
-    int j = threadIdx.x + blockIdx.x * blockDim.x;
-    int ar = j * nc;
-
-    for (int i = 1; i < nc - 1; i++)
+    int ar = threadIdx.x + blockIdx.x * blockDim.x;
+    if(ar == 0){
+        return;
+    }
+    if (ar + 1 < nx_d)
     {
-
-        if (ar + 1 < nx)
-        {
-            u[ar + i] = r * uold[ar + i - 1] + r2 * uold[ar + i] + r * uold[ar + i + 1];
-        }
-        else
-        {
-            cout << "i: " << i << "  j: " << j << endl;
-        }
+        u[ar] = r_d * uold[ar - 1] + r2_d * uold[ar] + r_d * uold[ar + 1];
+    }
+    else
+    {
+        printf("ar: %d nx: %d \n", ar, nx_d);
     }
 }
 
 void MDF_parallel_cuda()
 {
-    long N = 32 * nr;
+    long N = (nx-1);
     for (int m = 0; m < nt; m++)
     {
         t = t + dt;
-        double uold[nx];
-        memcpy(uold, u, nx * sizeof(double));
+        double *uold;
         double *u_d, *u_h;
-        // Create a copy of u array using memcpy (from C)
-        cudaMalloc((void **)&u_d, N * sizeof(double));
-        u_h = (double *)malloc(N * sizeof(double));
-        MDF_elem<<<N / 32, 32>>>(uold, u_d);
-        cudaMemcpy(u_h, u_d, N * sizeof(double), cudaMemcpyDeviceToHost);
-        memcpy(u_d, u, nx * sizeof(double));
+        cudaMalloc((void **)&u_d, nx * sizeof(double));
+        cudaMalloc((void **)&uold, nx * sizeof(double));
+        cudaMemcpy(u_d, u, nx * sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(uold, u, nx * sizeof(double), cudaMemcpyHostToDevice);
+
+        u_h = (double *)malloc(nx * sizeof(double));
+        MDF_elem_op<<<(N) / 256, 256>>>(uold, u_d, nc, nx, r, r2);
+        cudaMemcpy(u_h, u_d, nx * sizeof(double), cudaMemcpyDeviceToHost);
+
+        memcpy(u, u_h, nx * sizeof(double));
+        cudaFree(u_d);
+        cudaFree(uold);
+        free(u_h);
     }
 }
 
 // Finite differences method
 void MDF()
 {
-    cout << u[nx - 1] << endl;
+    // cout << u[nx - 1] << endl;
     // #pragma omp parallel for
     for (int m = 0; m < nt; m++)
     {
@@ -92,15 +96,15 @@ void MDF()
 
 void MDF_parallel()
 {
-    cout << u_parallel[nx - 1] << endl;
-#pragma omp parallel for
+    // cout << u_parallel[nx - 1] << endl;
+
     for (int m = 0; m < nt; m++)
     {
         // Create a copy of u array using memcpy (from C)
         double uold[nx];
         memcpy(uold, u_parallel, nx * sizeof(double));
         t = t + dt;
-
+#pragma omp parallel for
         for (int j = 0; j < nr; j++)
         {
             int ar = (j * nc);
@@ -194,18 +198,18 @@ void graph(string filename, string title)
     Gnuplot gp;
     ofstream salida(filename);
 
-    std::vector<double> pts_X;
-    std::vector<double> pts_Y;
-    std::vector<double> pts_Z;
+    // std::vector<double> pts_X;
+    // std::vector<double> pts_Y;
+    // std::vector<double> pts_Z;
 
     for (int j = 0; j < nr; j++)
     {
         int ar = (j * nc);
         for (int i = 0; i < nc; i++)
         {
-            pts_X.push_back(i);
-            pts_Y.push_back(j);
-            pts_Z.push_back(u[ar + i]);
+            // pts_X.push_back(i);
+            // pts_Y.push_back(j);
+            // pts_Z.push_back(u[ar + i]);
             salida << i << " " << j << " " << u[ar + i] << endl;
         }
     }
@@ -213,9 +217,9 @@ void graph(string filename, string title)
     salida.close();
 
     // gp << "set xrang[0:" << max(nr,nc) << "]" << "\n set yrang[0:" << max(nr,nc) << "]" << endl;
-    gp << "plot '-' with image title '" << title << "'" << endl;
-    gp.send1d(make_tuple(pts_X, pts_Y, pts_Z));
-    gp.clearTmpfiles();
+    // gp << "plot '-' with image title '" << title << "'" << endl;
+    // gp.send1d(make_tuple(pts_X, pts_Y, pts_Z));
+    // gp.clearTmpfiles();
 }
 
 int main(int argc, char *argv[])
@@ -368,21 +372,26 @@ int main(int argc, char *argv[])
             inputFile.close();
             cout << "nc: " << nc << "  nr: " << nr << "  nx: " << nx << "  dt: " << dt << "  dx: " << dx << "  alpha: " << alpha << endl;
             graph("input", "Estado Inicial");
-            // auto start = std::chrono::high_resolution_clock::now();
-            // MDF();
-            // auto stop = std::chrono::high_resolution_clock::now();
-            // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+            auto start = std::chrono::high_resolution_clock::now();
+            MDF();
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
             // // graph("output", "Estado Final");
-            // std::cout << "Duracion Single-Core:" << duration.count() << std::endl;
+            std::cout << "Duracion Single-Core: " << duration.count() << std::endl;
 
-            // auto start1 = std::chrono::high_resolution_clock::now();
-            // MDF_parallel();
-            // auto stop1 = std::chrono::high_resolution_clock::now();
-            // auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(stop1 - start1);
+            auto start1 = std::chrono::high_resolution_clock::now();
+            MDF_parallel();
+            auto stop1 = std::chrono::high_resolution_clock::now();
+            auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(stop1 - start1);
+            std::cout << "Duracion "<< omp_get_max_threads() << " Cores: " << duration1.count() << std::endl;
 
+            auto startCuda = std::chrono::high_resolution_clock::now();
             MDF_parallel_cuda();
+            auto stopCuda = std::chrono::high_resolution_clock::now();
+            auto durationCuda = std::chrono::duration_cast<std::chrono::microseconds>(stopCuda - startCuda);
+            std::cout << "Duracion CUDA: " << durationCuda.count() << std::endl;
             graph("output", "Estado Final");
-            std::cout << "Duracion " << omp_get_max_threads() << " cores: " << duration1.count() << std::endl;
+            // std::cout << "Duracion " << omp_get_max_threads() << " cores: " << duration1.count() << std::endl;
 
             cout << "Finished :D" << endl;
         }
